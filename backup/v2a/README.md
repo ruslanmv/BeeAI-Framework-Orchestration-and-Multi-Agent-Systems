@@ -1480,7 +1480,6 @@ Join our thriving community to continue innovating and building the future of in
 ### Connect:
 
 - **Email**: [contact@ruslanmv.com](mailto:contact@ruslanmv.com)
-- **GitHub Discussions**: [BeeAI Framework Discussions](https://github.com/your-username/BeeAI-Framework-Practical-Guide/discussions)
-- **Community Forum**: [BeeAI Community](https://community.beeai.org)
+
 
 Special thanks to our contributors, researchers, supporters, and the open-source community!
