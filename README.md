@@ -5,6 +5,7 @@ This tutorial builds upon our previous guides, diving deeper into workflows and 
 ## Table of Contents
 
 -   [Overview](#overview)
+-   [Setup](#setup)
 -   [Core Concepts](#core-concepts)
     -   [State](#state)
     -   [Steps](#steps)
@@ -28,6 +29,109 @@ This tutorial builds upon our previous guides, diving deeper into workflows and 
 ## Overview
 
 BeeAI workflows support dynamic task execution, validation, modularity, and observability, providing the foundation for creating sophisticated orchestrations.  They enable developers to design complex, multi-step processes where each step is clearly defined, data flow is managed, and execution paths can dynamically adapt based on outcomes or conditions.  This makes BeeAI particularly powerful for building intelligent agents and systems that need to perform complex reasoning and actions.
+
+## Setup
+
+Follow these steps to set up your environment for running BeeAI Framework on Windows or Ubuntu 22.04.
+
+## Prerequisites
+
+- **Python 3.12+** (Ensure it is added to PATH during installation)
+- **Anaconda or Miniconda** (Recommended for environment management)
+
+## Windows Setup
+
+1. **Install Python 3.12+**: Download from [python.org](https://www.python.org/downloads/windows/).
+
+2. **Install Anaconda/Miniconda**: Download from [Anaconda](https://www.anaconda.com/download) or [Miniconda](https://docs.conda.io/en/latest/miniconda.html).
+
+3. Open Anaconda Prompt
+
+    and create a virtual environment:
+
+   ```bash
+   python -m venv venv
+   venv\Scripts\activate
+   ```
+
+4. Install BeeAI Framework and dependencies:
+
+   ```bash
+   pip install beeai-framework pandas networkx matplotlib plotly scikit-learn
+   ```
+
+5. Install and Start Ollama:
+
+   - Download from [ollama.com](https://ollama.com/download) and install.
+
+   - Start Ollama server:
+
+     ```bash
+     ollama serve &
+     ```
+
+   - Download the required model:
+
+     ```bash
+     ollama pull granite3.1-dense:8b
+     ```
+
+6. Set Watsonx.ai Credentials (If required):
+
+   ```bash
+   set WATSONX_PROJECT_ID=YOUR_WATSONX_PROJECT_ID
+   set WATSONX_API_KEY=YOUR_WATSONX_API_KEY
+   set WATSONX_API_URL=YOUR_WATSONX_API_ENDPOINT_URL
+   ```
+
+## Ubuntu 22.04 Setup
+
+1. Install Python 3.12+:
+
+   ```bash
+   sudo apt update && sudo apt install python3.12 python3.12-venv
+   ```
+
+2. Install Anaconda/Miniconda:
+
+   - Download from [Anaconda](https://www.anaconda.com/download) or [Miniconda](https://docs.conda.io/en/latest/miniconda.html) and run the installer.
+   - Reload shell: `source ~/.bashrc` or `source ~/.zshrc`
+
+3. Create and activate virtual environment:
+
+   ```bash
+   python3.12 -m venv venv
+   source venv/bin/activate
+   ```
+
+4. Install BeeAI Framework and dependencies:
+
+   ```bash
+   pip install beeai-framework pandas networkx matplotlib plotly scikit-learn
+   ```
+
+5. Install and Start Ollama:
+
+   ```bash
+   curl -fsSL https://ollama.com/install.sh | sh
+   ollama serve &
+   ollama pull granite3.1-dense:8b
+   ```
+
+6. Set Watsonx.ai Credentials (If required):
+
+   ```bash
+   export WATSONX_PROJECT_ID=YOUR_WATSONX_PROJECT_ID
+   export WATSONX_API_KEY=YOUR_WATSONX_API_KEY
+   export WATSONX_API_URL=YOUR_WATSONX_API_ENDPOINT_URL
+   ```
+
+## Notes
+
+- Always activate your virtual environment before running BeeAI.
+- Ensure Ollama server is running in the background.
+- Use environment variables to manage Watsonx credentials securely.
+- For troubleshooting, refer to BeeAI documentation.
 
 ## Core Concepts
 
