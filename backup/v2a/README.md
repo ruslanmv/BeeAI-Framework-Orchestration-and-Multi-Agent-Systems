@@ -1225,64 +1225,245 @@ if __name__ == "__main__":
 ```
 
 ---
-
 ## Embedding model
 
-The EmbedingModel class provides functionality for generating vector embeddings from text.
+The `EmbedingModel` class provides functionality for generating vector embeddings from text.
 
 ### Embedding model initialization
 
 You can initialize an embedding model in multiple ways:
 
-**Method 1: Using the generic factory method**
+#### Method 1: Using the generic factory method
 
-*Coming soon*
+The most straightforward way to initialize an embedding model is using the `EmbeddingModel.from_name()` factory method. This method automatically handles the creation of the appropriate provider-specific model based on the name you provide. BeeAI Framework supports various providers out of the box, and this method simplifies their instantiation.
 
-**Method 2: Creating a specific provider model directly**
+```python
+from beeai_framework.backend.embedding import EmbeddingModel
 
-*Coming soon*
+async def factory_method_example():
+    # Initialize an embedding model from Ollama (ensure Ollama is running)
+    ollama_embedding_model = EmbeddingModel.from_name("ollama:nomic-embed-text")
+    print(f"Provider ID: {ollama_embedding_model.provider_id}") # Output: ollama
+    print(f"Model ID: {ollama_embedding_model.model_id}") # Output: nomic-embed-text
+
+    # Initialize an embedding model from Watsonx (ensure Watsonx credentials are configured)
+    watsonx_embedding_model = EmbeddingModel.from_name("watsonx:ibm/granite-embedding-107m-multilingual")
+    print(f"Provider ID: {watsonx_embedding_model.provider_id}") # Output: watsonx
+    print(f"Model ID: {watsonx_embedding_model.model_id}") # Output: ibm/granite-embedding-107m-multilingual
+
+await factory_method_example()
+```
+
+#### Method 2: Creating a specific provider model directly
+
+For more granular control or when you need to configure provider-specific parameters, you can directly instantiate the embedding model class for your chosen provider. This method allows you to pass in specific configurations as needed.
+
+```python
+from beeai_framework.adapters.openai.embedding import OpenAIEmbeddingModel
+
+async def direct_provider_example():
+    # Initialize OpenAI Embedding Model directly
+    openai_embedding_model = OpenAIEmbeddingModel(
+        model_id="text-embedding-3-small",
+        config={
+            "dimensions": 512, # Optional: Specify embedding dimensions
+            "max_embeddings_per_call": 5, # Optional: Limit embeddings per API call
+        },
+        provider_options={ # Optional: Provider-specific options like custom endpoint, API keys etc.
+            # "base_url": "your_custom_endpoint", # Uncomment and set your custom endpoint if needed
+            # "api_key": "YOUR_OPENAI_API_KEY", # Uncomment and set your OpenAI API key if not using env vars
+            "compatibility": "openai", # Ensure compatibility setting if using custom endpoints
+            # "headers": {"CUSTOM_HEADER": "..."}, # Add custom headers if required
+        },
+    )
+    print(f"Provider ID: {openai_embedding_model.provider_id}") # Output: openai
+    print(f"Model ID: {openai_embedding_model.model_id}") # Output: text-embedding-3-small
+
+await direct_provider_example()
+```
 
 ### Embedding model usage
 
-Generate embeddings for one or more text strings:
+Generate embeddings for one or more text strings using the `create` method. This method accepts a list of text strings in the `values` parameter and returns an `EmbeddingResponse` object containing the generated embeddings.
 
-*Coming soon*
+```python
+from beeai_framework.backend.embedding import EmbeddingModel
 
----
+async def embedding_usage_example():
+    # Initialize Ollama Embedding Model using factory method
+    embedding_model = EmbeddingModel.from_name("ollama:nomic-embed-text")
 
-## Advanced usage
+    # Generate embeddings for a list of text strings
+    response = await embedding_model.create(values=["Hello world!", "Hello Bee!"])
+
+    print("Original Texts:", response.values)
+    print("Generated Embeddings:", response.embeddings) # Embeddings will be a list of lists (vectors)
+    print("Provider ID:", response.provider_id)
+    print("Model ID:", response.model_id)
+
+await embedding_usage_example()
+```
+
+### Advanced usage
 
 If your preferred provider isn't directly supported, you can use the LangChain adapter as a bridge.
+This allows you to leverage any provider that has LangChain compatibility, extending BeeAI Framework's reach significantly.
 
-This allows you to leverage any provider that has LangChain compatibility.
+```python
+import asyncio
+import pathlib
+import random
+import sys
+import traceback
 
-*Coming soon*
+import langchain
+from langchain_community.embeddings import HuggingFaceEmbeddings
+from langchain_community.tools.file_management.list_dir import ListDirectoryTool
+from langchain_core.tools import StructuredTool
+from pydantic import BaseModel, Field
+
+from beeai_framework.adapters.langchain.embedding import LangChainEmbeddingModel
+from beeai_framework.adapters.langchain.tools import LangChainTool
+from beeai_framework.errors import FrameworkError
+
+async def huggingface_embedding_model() -> None:
+    """
+    Example demonstrating the usage of a HuggingFace embedding model via LangChain adapter.
+    """
+    hf_embeddings = HuggingFaceEmbeddings(model_name="all-mpnet-base-v2") # Example HuggingFace model
+    embedding_model = LangChainEmbeddingModel(hf_embeddings)
+
+    texts_to_embed = ["This is the first sentence.", "Here is another sentence."]
+    response = await embedding_model.create(values=texts_to_embed)
+
+    print("Original Texts:", response.values)
+    print("Embeddings (first vector, first 5 dimensions):", response.embeddings[0][:5]) # Print first 5 dimensions of the first embedding
+    print("Provider ID:", response.provider_id)
+    print("Model ID:", response.model_id) # Will indicate LangChain adapter usage
+
+async def directory_list_tool() -> None:
+    """Example demonstrating listing directory contents using LangChain's ListDirectoryTool."""
+    list_dir_tool = ListDirectoryTool()
+    tool = LangChainTool(list_dir_tool)
+    dir_path = str(pathlib.Path(__file__).parent.resolve())
+    response = await tool.run({"dir_path": dir_path})
+    print(f"Listing contents of {dir_path}:\n{response}")
 
 
-_Source: /examples/backend/providers/langchain.py_
+async def custom_structured_tool() -> None:
+    """Example of creating and using a custom structured tool via LangChain adapter."""
+    class RandomNumberToolArgsSchema(BaseModel):
+        min: int = Field(description="The minimum integer", ge=0)
+        max: int = Field(description="The maximum integer", ge=0)
 
----
+    def random_number_func(min: int, max: int) -> int:
+        """Generate a random integer between two given integers. The two given integers are inclusive."""
+        return random.randint(min, max)
 
-## Troubleshooting
+    generate_random_number = StructuredTool.from_function(
+        func=random_number_func,
+        # coroutine=async_random_number_func, <- if you want to specify an async method instead
+        name="GenerateRandomNumber",
+        description="Generate a random number between a minimum and maximum value.",
+        args_schema=RandomNumberToolArgsSchema,
+        return_direct=True,
+    )
+
+    tool = LangChainTool(generate_random_number)
+    response = await tool.run({"min": 1, "max": 10})
+
+    print(f"Your random number: {response}")
+
+
+async def main() -> None:
+    print("*" * 10, "Using HuggingFace Embedding Model via LangChain")
+    await huggingface_embedding_model()
+    print("*" * 10, "Using custom StructuredTool")
+    await custom_structured_tool()
+    print("*" * 10, "Using ListDirectoryTool")
+    await directory_list_tool()
+
+
+if __name__ == "__main__":
+    langchain.debug = False
+    try:
+        asyncio.run(main())
+    except FrameworkError as e:
+        traceback.print_exc()
+        sys.exit(e.explain())
+```
+
+**Source:** `/examples/backend/providers/langchain.py`
+
+To run this example, the optional packages:
+
+-   `langchain-core`
+-   `langchain-community`
+
+need to be installed.
+
+### Troubleshooting
 
 Common issues and their solutions:
 
-1. **Authentication errors:** Ensure all required environment variables are set correctly
-2. **Model not found:** Verify that the model ID is correct and available for the selected provider
+-   **Authentication errors**: Ensure all required environment variables are set correctly, especially API keys and provider-specific credentials.
+-   **Model not found**: Verify that the model ID is correct and available for the selected provider. Double-check the model name and provider compatibility.
+-   **Package dependencies**: For LangChain integration, make sure you have installed the necessary LangChain packages (`langchain-core`, `langchain-community`, and any provider-specific LangChain integrations like `langchain-openai`).
 
----
+## Embedding Model
 
-## Next Steps
+The `EmbedingModel` class represents an Embedding Model and can be initiated in one of the following ways.
 
-Now that you have seen how to:
-- Create prompt templates and render them dynamically.
-- Interact with language models using ChatModel.
-- Maintain conversation history with memory.
-- Build structured output responses.
-- Build a multi-step workflow (with and without memory).
-- Configure a ReAct agent with custom and imported tools.
-- **Orchestrate multi-agent systems using Workflows.**
-- **Utilize Watsonx.ai backend within BeeAI Framework.**
+```typescript
+import { EmbedingModel } from "beeai-framework/backend/core";
 
-You are well-equipped to start building sophisticated AI applications with the BeeAI framework. Explore the examples directory for more advanced use cases and integrations.  Dive deeper into the documentation to discover all the features and customization options BeeAI offers!
+const model = await EmbedingModel.fromName("ibm/granite-embedding-107m-multilingual");
+console.log(model.providerId); // watsonx
+console.log(model.modelId); // ibm/granite-embedding-107m-multilingual
+```
+
+or you can always create the concrete provider's embedding model directly
+
+```typescript
+import { OpenAIEmbeddingModel } from "beeai-framework/adapters/openai/embedding";
+
+const model = new OpenAIEmbeddingModel(
+    "text-embedding-3-large",
+    {
+        dimensions: 512,
+        maxEmbeddingsPerCall: 5,
+    },
+    {
+        baseURL: "your_custom_endpoint",
+        compatibility: "compatible",
+        headers: {
+            CUSTOM_HEADER: "...",
+        },
+    },
+);
+```
+
+### Usage
+
+```typescript
+import { EmbeddingModel } from "beeai-framework/backend/core";
+
+const model = await EmbeddingModel.fromName("ollama:nomic-embed-text");
+const response = await model.create({
+    values: ["Hello world!", "Hello Bee!"],
+});
+console.log(response.values);
+console.log(response.embeddings);
+```
+
+## Conclusion
+
+In this comprehensive guide, you've explored the `EmbeddingModel` class within the BeeAI Framework, unlocking the power of vector embeddings for your AI applications. You've learned how to effortlessly initialize embedding models using both the factory method for streamlined setup and direct provider instantiation for detailed configuration.  Furthermore, you've seen how to generate embeddings for text and even extend BeeAI's capabilities to integrate with virtually any embedding provider through the LangChain adapter.
+
+With this knowledge, you can now seamlessly incorporate powerful semantic understanding into your BeeAI projects. Whether you're building sophisticated semantic search engines, implementing advanced retrieval-augmented generation (RAG) systems, or enhancing your agents with nuanced text comprehension, BeeAI Framework's `EmbeddingModel` provides the flexibility and robustness you need.
+
+This exploration of the `EmbeddingModel` concludes our deep dive into the core functionalities of BeeAI Framework. You are now well-equipped to leverage prompt templates, chat models, memory management, structured outputs, workflows, agents, and embedding models to construct truly innovative and intelligent AI applications.
+
+Thank you for embarking on this journey with BeeAI Framework. For further inquiries, collaborations, or to share your creations, please don't hesitate to contact us at [contact@ruslanmv.com](mailto:contact@ruslanmv.com) or visit [https://ruslanmv.com](https://ruslanmv.com) for more content and updates. We eagerly anticipate seeing the groundbreaking applications you will build with BeeAI!
+
 
