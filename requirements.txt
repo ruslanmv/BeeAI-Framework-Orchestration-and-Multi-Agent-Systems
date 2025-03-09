@@ -1,0 +1,11 @@
+beeai-framework==0.1.1
+pydantic==2.10.6
+langchain-community==0.3.18
+ipykernel
+fastapi==0.115.8
+Flask==3.1.0
+pandas 
+networkx 
+matplotlib 
+plotly 
+scikit-learn

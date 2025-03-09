@@ -45,38 +45,69 @@ Follow these steps to set up your environment for running BeeAI Framework on Win
 
 2. **Install Anaconda/Miniconda**: Download from [Anaconda](https://www.anaconda.com/download) or [Miniconda](https://docs.conda.io/en/latest/miniconda.html).
 
-3. Open Anaconda Prompt
+3. Open terminal
 
     and create a virtual environment:
 
    ```bash
-   python -m venv venv
-   venv\Scripts\activate
+ 
+  conda create --name beeai ipykernel python=3.12
+  conda activate beeai
+
    ```
 
 4. Install BeeAI Framework and dependencies:
 
    ```bash
-   pip install beeai-framework pandas networkx matplotlib plotly scikit-learn
+   pip install beeai-framework==0.1.0 pandas networkx matplotlib plotly scikit-learn
    ```
 
 5. Install and Start Ollama:
 
    - Download from [ollama.com](https://ollama.com/download) and install.
 
+
+   -  Verify if Ollama is running.
+
+
    - Start Ollama server:
 
      ```bash
      ollama serve &
      ```
+     
+
+    ![](assets/2025-03-08-18-10-44.png)
+
+   Open a new terminal and type 
 
    - Download the required model:
 
      ```bash
      ollama pull granite3.1-dense:8b
      ```
+     ![](assets/2025-03-08-18-12-48.png)
 
-6. Set Watsonx.ai Credentials (If required):
+6. Use curl to Check Ollama's API
+Run the following command to check if ollama is responding:
+
+```
+curl http://127.0.0.1:11434/api/tags
+
+```
+
+## Optional Use a Different Port
+If port 11434 is in use and you don't want to terminate the other process, you can specify a different port for ollama serve:
+
+```
+OLLAMA_HOST=127.0.0.1:11500 ollama serve &
+```
+Then, when using ollama, you need to reference the new port (11500 instead of 11434).
+
+
+
+![](assets/2025-03-08-15-24-53.png)
+7. Set Watsonx.ai Credentials (If required):
 
    ```bash
    set WATSONX_PROJECT_ID=YOUR_WATSONX_PROJECT_ID
@@ -107,7 +138,7 @@ Follow these steps to set up your environment for running BeeAI Framework on Win
 4. Install BeeAI Framework and dependencies:
 
    ```bash
-   pip install beeai-framework pandas networkx matplotlib plotly scikit-learn
+   pip install beeai-framework==0.1.0 pandas networkx matplotlib plotly scikit-learn
    ```
 
 5. Install and Start Ollama:
@@ -187,6 +218,13 @@ print(response.state.message)
 
 In this example, `first_step` and `second_step` are executed in order. The `State` Pydantic model ensures that the `message` attribute is correctly passed and modified between steps, illustrating a linear workflow progression.
 
+Output:
+```
+First Step executed
+Second Step executed
+Hello BeeAI Framework
+```
+
 ### Multi-Step Workflow
 
 Demonstrating conditional logic and loops within workflows, this example implements multiplication using repeated addition:
@@ -216,7 +254,14 @@ response = await calc_workflow.run(CalcState(x=7, y=-3))
 print(response.state.result)
 ```
 
+Output:
+```
+-21
+```
+
 This workflow uses conditional logic within the `multiply` step to handle both positive and negative multipliers, showcasing how workflows can implement more complex logic beyond simple sequential execution.
+
+
 
 ## Advanced Orchestration
 
@@ -226,57 +271,106 @@ BeeAI excels at orchestrating multi-agent systems, allowing you to integrate spe
 
 ```python
 import asyncio
-import sys
 import traceback
-
-from beeai_framework.agents.types import AgentExecutionConfig
+from pydantic import ValidationError
+from beeai_framework.agents.bee.agent import BeeAgentExecutionConfig
 from beeai_framework.backend.chat import ChatModel
 from beeai_framework.backend.message import UserMessage
-from beeai_framework.errors import FrameworkError
 from beeai_framework.memory import UnconstrainedMemory
 from beeai_framework.tools.search.duckduckgo import DuckDuckGoSearchTool
 from beeai_framework.tools.weather.openmeteo import OpenMeteoTool
-from beeai_framework.workflows.agent import AgentWorkflow
+from beeai_framework.workflows.agent import AgentFactoryInput, AgentWorkflow
+from beeai_framework.workflows.workflow import WorkflowError
 
+async def run_workflow(prompt):
+    llm = await ChatModel.from_name("ollama:granite3.1-dense:8b")
 
-async def main() -> None:
-    llm = ChatModel.from_name("ollama:granite3.1-dense:8b")
-
-    workflow = AgentWorkflow(name="Smart assistant")
-    workflow.add_agent(
-        name="WeatherForecaster",
-        instructions="You are a weather assistant. Use tools to provide weather information.",
-        tools=[OpenMeteoTool()],
-        llm=llm,
-        execution=AgentExecutionConfig(max_iterations=3, total_max_retries=10, max_retries_per_step=3),
-    )
-    workflow.add_agent(
-        name="Researcher",
-        instructions="You are a researcher assistant. Use search tools to find information.",
-        tools=[DuckDuckGoSearchTool()],
-        llm=llm,
-    )
-    workflow.add_agent(
-        name="Solver",
-        instructions="""Your task is to provide the most useful final answer based on the assistants'
-responses which all are relevant. Ignore those where assistant do not know.""",
-        llm=llm,
-    )
-
-    prompt = "What is the weather in New York?"
-    memory = UnconstrainedMemory()
-    await memory.add(UserMessage(content=prompt))
-    response = await workflow.run(messages=memory.messages)
-    print(f"result (Ollama Backend): {response.state.final_answer}")
-
-
-if __name__ == "__main__":
     try:
-        asyncio.run(main())
-    except FrameworkError as e:
+        workflow = AgentWorkflow(name="Smart assistant")
+        workflow.add_agent(
+            agent=AgentFactoryInput(
+                name="WeatherForecaster",
+                instructions="You are a weather assistant. Respond only if you can provide a useful answer.",
+                tools=[OpenMeteoTool()],
+                llm=llm,
+                execution=BeeAgentExecutionConfig(max_iterations=3),
+            )
+        )
+        workflow.add_agent(
+            agent=AgentFactoryInput(
+                name="Researcher",
+                instructions="You are a researcher assistant. Respond only if you can provide a useful answer.",
+                tools=[DuckDuckGoSearchTool()],
+                llm=llm,
+            )
+        )
+        workflow.add_agent(
+            agent=AgentFactoryInput(
+                name="Solver",
+                instructions="""Your task is to provide the most useful final answer based on the assistants'
+responses which all are relevant. Ignore those where assistant do not know.""",
+                llm=llm,
+            )
+        )
+
+        memory = UnconstrainedMemory()
+        await memory.add(UserMessage(content=prompt))
+        response = await workflow.run(messages=memory.messages)
+        return response.state.final_answer
+
+    except WorkflowError:
         traceback.print_exc()
-        sys.exit(e.explain())
+        return None
+    except ValidationError:
+        traceback.print_exc()
+        return None
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+        traceback.print_exc()
+        return None
+
+async def execute_in_notebook(prompt):
+    """Executes the workflow in a Jupyter Notebook environment."""
+    try:
+        result = await run_workflow(prompt)
+        if result:
+            print(f"result: {result}")
+        else:
+            print("Workflow execution failed.")
+    except RuntimeError as e:
+        if "cannot be called from a running event loop" in str(e):
+            print("Error: asyncio.run() cannot be called from a running event loop in Jupyter. Use await directly.")
+            print("Try using: await execute_in_notebook('Your Prompt Here')")
+        else:
+            print(f"An unexpected RuntimeError occurred: {e}")
+            traceback.print_exc()
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+        traceback.print_exc()
+
+def execute_in_normal_python(prompt):
+    """Executes the workflow in a normal Python environment."""
+    try:
+        result = asyncio.run(run_workflow(prompt))
+        if result:
+            print(f"result: {result}")
+        else:
+            print("Workflow execution failed.")
+    except Exception as e:
+        print(f"An unexpected error occurred: {e}")
+        traceback.print_exc()
+
+# Example usage within a Jupyter Notebook cell:
+prompt = "What is the weather in Genova Italy?"
+await execute_in_notebook(prompt)
+
 ```
+You will obtain
+
+```
+The current weather in Genoa, Italy is mostly cloudy with a temperature of 14.8°C, no rainfall, and light winds. Today's forecasted high will be around 18.9°C and the low will be approximately 11.1°C.
+```
+
 
 ### Orchestrating with Ollama
 
@@ -287,12 +381,21 @@ from beeai_framework.adapters.ollama.backend.chat import OllamaChatModel
 from beeai_framework.backend.message import UserMessage
 
 async def ollama_example():
-    llm = OllamaChatModel("llama3.1")
+    # Use a valid model name; if you intend to use "llama3.1", make sure to pull it first.
+    llm = OllamaChatModel("granite3.1-dense:8b")
     user_message = UserMessage("Describe the Eiffel Tower.")
-    response = await llm.create(messages=[user_message])
-    print(response.get_text_content())
+    
+    try:
+        # Pass messages as a dictionary with the key "messages"
+        response = await llm.create({"messages": [user_message]})
+        print(response.get_text_content())
+    except Exception as e:
+        print("An error occurred:", e)
+        print("Ensure the model name is correct or pull the model if necessary.")
 
+# In an async-capable environment (e.g., Jupyter, or within an async main), run:
 await ollama_example()
+
 ```
 
 ### Orchestrating with Watsonx.ai
@@ -300,16 +403,35 @@ await ollama_example()
 Integration with Watsonx.ai for orchestration:
 
 ```python
+import os
+from dotenv import load_dotenv
 from beeai_framework.adapters.watsonx.backend.chat import WatsonxChatModel
 from beeai_framework.backend.message import UserMessage
 
+# Load environment variables from .env
+load_dotenv()
+
+WATSONX_PROJECT_ID = os.getenv("PROJECT_ID")
+WATSONX_API_KEY = os.getenv("WATSONX_API_KEY")
+WATSONX_API_URL = os.getenv("WATSONX_URL")
+
 async def watsonx_example():
-    watsonx_llm = WatsonxChatModel("ibm/granite-3-8b-instruct")
+    # Await model instantiation with correct provider-prefixed model name and options
+    watsonx_llm = await WatsonxChatModel.from_name(
+        "watsonx:ibm/granite-3-8b-instruct",
+        options={
+            "project_id": WATSONX_PROJECT_ID,
+            "api_key": WATSONX_API_KEY,
+            "api_base": WATSONX_API_URL,
+        },
+    )
     user_message = UserMessage("Historical significance of the Eiffel Tower?")
-    response = await watsonx_llm.create(messages=[user_message])
+    # Pass the messages inside a dictionary with the key "messages"
+    response = await watsonx_llm.create({"messages": [user_message]})
     print(response.get_text_content())
 
 await watsonx_example()
+
 ```
 
 ### Complex Multi-Agent Orchestration (Watsonx and Ollama combined)
