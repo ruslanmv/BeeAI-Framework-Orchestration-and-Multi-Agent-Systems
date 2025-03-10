@@ -57,25 +57,6 @@ responses which all are relevant. Ignore those where assistant do not know.""",
         traceback.print_exc()
         return None
 
-async def execute_in_notebook(prompt):
-    """Executes the workflow in a Jupyter Notebook environment."""
-    try:
-        result = await run_workflow(prompt)
-        if result:
-            print(f"result: {result}")
-        else:
-            print("Workflow execution failed.")
-    except RuntimeError as e:
-        if "cannot be called from a running event loop" in str(e):
-            print("Error: asyncio.run() cannot be called from a running event loop in Jupyter. Use await directly.")
-            print("Try using: await execute_in_notebook('Your Prompt Here')")
-        else:
-            print(f"An unexpected RuntimeError occurred: {e}")
-            traceback.print_exc()
-    except Exception as e:
-        print(f"An unexpected error occurred: {e}")
-        traceback.print_exc()
-
 def execute_in_normal_python(prompt):
     """Executes the workflow in a normal Python environment."""
     try:
@@ -88,6 +69,6 @@ def execute_in_normal_python(prompt):
         print(f"An unexpected error occurred: {e}")
         traceback.print_exc()
 
-# Example usage within a Jupyter Notebook cell:
+
 prompt = "What is the weather in Genova Italy?"
 execute_in_normal_python(prompt)
